@@ -107,6 +107,14 @@ public class OrderManagementServiceImpl implements OrderManagementService {
     @Override
     @RabbitListener(queues = "${order.status.queue}")
     public void validateOrder(StatusUpdateDto updateDto) {
+        // Payment failure is a compensating action: release stock reservations through
+        // the existing rejected-order workflow. Guarding the prior state makes redelivery safe.
+        OrderRecordDto current = orderService.getOrder(updateDto.getOrderId());
+        if (updateDto.getStatus() == OrderStatus.PAYMENT_FAILED
+                && current != null && current.getStatus() != OrderStatus.PAYMENT_FAILED) {
+            rabbitTemplate.convertAndSend(rejectedOrderExchange, "",
+                    new RejectedOrder(updateDto.getOrderId(), "PAYMENT_FAILED"));
+        }
         orderService.updateOrderStatus(updateDto.getOrderId(), updateDto.getStatus());
     }
 
@@ -186,4 +194,3 @@ public class OrderManagementServiceImpl implements OrderManagementService {
         else return "Unknown Reason";
     }
 }
-

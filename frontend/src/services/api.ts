@@ -63,13 +63,14 @@ export interface DiscountResponse {
   isValid: boolean;
 }
 
-export enum PaymentType {
-  CREDIT_CARD = 'CREDIT_CARD',
-  BANK_TRANSFER = 'BANK_TRANSFER',
-  PAYPAL = 'PAYPAL',
-  APPLE_PAY = 'APPLE_PAY',
-  GOOGLE_PAY = 'GOOGLE_PAY',
-}
+export const PaymentType = {
+  CREDIT_CARD: 'CREDIT_CARD',
+  BANK_TRANSFER: 'BANK_TRANSFER',
+  PAYPAL: 'PAYPAL',
+  APPLE_PAY: 'APPLE_PAY',
+  GOOGLE_PAY: 'GOOGLE_PAY',
+} as const;
+export type PaymentType = typeof PaymentType[keyof typeof PaymentType];
 
 // API服务类
 export class OrderApiService {

@@ -19,11 +19,12 @@ A modern food delivery platform with microservices architecture, featuring React
 ### Backend Services
 - **Config Server** (Port 8888): Centralized configuration management
 - **Order Service** (Port 8080): Food order creation and management
-- **Restaurant Service** (Port 8082): Menu catalog and inventory management
+- **Merchant Service** (within Product Service, Port 8082): virtual restaurant catalog, menu inventory, and merchant REST APIs
 - **Discount Service** (Port 8083): Promo code validation
 - **Accounting Service** (Port 8081): Price calculation and billing
 - **Payment Service**: Payment processing (planned)
 - **Delivery Service**: Delivery tracking (planned)
+  - **Delivery Service** (Port 8085): Courier assignment and a persisted delivery state machine
 
 ### Frontend
 - **React + TypeScript**: Modern, type-safe frontend
@@ -128,6 +129,12 @@ The system uses PostgreSQL with the following key entities:
 3. **Pricing**: Accounting Service calculates totals
 4. **Payment**: Integration with payment providers
 5. **Delivery**: Order tracking and completion
+
+## Reliability design
+
+Order creation writes the order and an `outbox_event` row in one PostgreSQL transaction. A scheduled publisher retries every unpublished row, publishing an event with a stable message ID. Delivery consumers persist that ID in `processed_message` before acknowledging it, so redelivery is idempotent. Payment transactions are persisted and keyed by `Idempotency-Key`; a failed payment publishes `PAYMENT_FAILED`, which sends the order through the existing stock-release compensation workflow. Merchant catalog reads use Redis cache-aside with five-minute TTL and write invalidation. `delivery` has a unique `order_id`, state-transition guards, and composite indexes for available jobs and courier work queues. The product menu is the merchant boundary; the order, payment, and delivery services never share tables.
+
+Load-test results are intentionally not claimed here: run the included API scenario against a running PostgreSQL, Redis, and RabbitMQ environment and record p95 before placing a 350 RPS number on a résumé.
 
 ## 🧪 Testing
 
