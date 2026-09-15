@@ -7,6 +7,7 @@ import './App.css';
 type Role = 'customer' | 'driver';
 type DeliveryState = 'READY_FOR_PICKUP' | 'ACCEPTED' | 'PICKED_UP' | 'DELIVERING' | 'DELIVERED';
 type Account = { name: string; email: string; password: string; role: Role };
+type StoredAccount = Omit<Account, 'role'> & { role: Role | 'courier' };
 type MenuItem = { id: number; name: string; description: string; price: number };
 type Restaurant = { id: number; name: string; cuisine: string; eta: string; image: string; menu: MenuItem[] };
 type Delivery = { id: string; restaurant: string; customer: string; address: string; total: number; state: DeliveryState; driverEmail?: string };
@@ -24,9 +25,10 @@ const initialDeliveries: Delivery[] = [
 const nextState: Record<DeliveryState, DeliveryState> = { READY_FOR_PICKUP: 'ACCEPTED', ACCEPTED: 'PICKED_UP', PICKED_UP: 'DELIVERING', DELIVERING: 'DELIVERED', DELIVERED: 'DELIVERED' };
 const money = (value: number) => `$${value.toFixed(2)}`;
 const statusLabel: Record<DeliveryState, string> = { READY_FOR_PICKUP: 'Ready for pickup', ACCEPTED: 'Heading to restaurant', PICKED_UP: 'Order picked up', DELIVERING: 'Out for delivery', DELIVERED: 'Delivered' };
+const normalizeAccount = (account: StoredAccount): Account => ({ ...account, role: account.role === 'courier' ? 'driver' : account.role });
 
 function App() {
-  const [account, setAccount] = useState<Account | null>(() => { const saved = localStorage.getItem('food-delivery-session'); return saved ? JSON.parse(saved) as Account : null; });
+  const [account, setAccount] = useState<Account | null>(() => { const saved = localStorage.getItem('food-delivery-session'); return saved ? normalizeAccount(JSON.parse(saved) as StoredAccount) : null; });
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [authError, setAuthError] = useState('');
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
@@ -47,7 +49,7 @@ function App() {
   if (!account) return <main className="app-shell"><section className="auth-card"><p className="eyebrow">VIRTUAL FOOD DELIVERY</p><h1>{authMode === 'login' ? 'Welcome back' : 'Create your account'}</h1><p className="subtitle">Sign in to access the workspace for your selected role.</p><form onSubmit={(event) => {
     event.preventDefault(); const data = new FormData(event.currentTarget); const email = String(data.get('email')).trim().toLowerCase(); const password = String(data.get('password')); const users = JSON.parse(localStorage.getItem('food-delivery-users') ?? '[]') as Account[];
     if (authMode === 'register') { const name = String(data.get('name')).trim(); const role = String(data.get('role')) as Role; if (users.some((user) => user.email === email)) { setAuthError('This email already has an account. Please sign in.'); return; } const user = { name, email, password, role }; localStorage.setItem('food-delivery-users', JSON.stringify([...users, user])); localStorage.setItem('food-delivery-session', JSON.stringify(user)); setAccount(user); return; }
-    const user = users.find((item) => item.email === email && item.password === password); if (!user) { setAuthError('Email or password is incorrect. Create an account first.'); return; } localStorage.setItem('food-delivery-session', JSON.stringify(user)); setAccount(user);
+    const user = users.find((item) => item.email === email && item.password === password); if (!user) { setAuthError('Email or password is incorrect. Create an account first.'); return; } const normalized = normalizeAccount(user as StoredAccount); localStorage.setItem('food-delivery-session', JSON.stringify(normalized)); setAccount(normalized);
   }}>
     {authMode === 'register' && <><label>Full name<input name="name" required /></label><label>Role<select name="role" defaultValue="customer"><option value="customer">Customer — order food</option><option value="driver">Driver — deliver orders</option></select></label></>}
     <label>Email<input name="email" type="email" required /></label><label>Password<input name="password" type="password" minLength={6} required /></label>{authError && <p className="auth-error">{authError}</p>}<button className="primary" type="submit">{authMode === 'login' ? 'Sign in' : 'Create account'}</button>
